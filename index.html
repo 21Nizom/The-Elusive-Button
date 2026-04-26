@@ -15,13 +15,15 @@
         
         body {
             margin: 0; height: 100vh; overflow: hidden; touch-action: none;
-            background: #4a0404; /* Base Cherry */
             background: radial-gradient(circle at center, #800020 0%, #4a0404 100%);
             font-family: 'Segoe UI', sans-serif;
             display: flex; justify-content: center; align-items: center;
         }
 
-        canvas { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
+        #game-area {
+            position: absolute; width: 100%; height: 100%;
+            top: 0; left: 0; z-index: 5;
+        }
 
         #evade-button {
             position: absolute;
@@ -30,16 +32,15 @@
             font-weight: 600;
             letter-spacing: 2px;
             color: #fff;
-            background: rgba(255, 183, 213, 0.4); /* Pink Glass */
+            background: rgba(255, 183, 213, 0.5);
             border: 1px solid rgba(255, 255, 255, 0.4);
             border-radius: 50px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-            z-index: 10;
             text-transform: uppercase;
-            /* Оптимизация для мобилок */
+            transition: all 0.15s ease-out;
+            pointer-events: auto;
+            z-index: 10;
             transform: translate3d(0,0,0);
-            will-change: transform, left, top;
-            transition: transform 0.1s ease-out;
         }
 
         #final-message {
@@ -47,108 +48,55 @@
             width: 100%; text-align: center;
             top: 50%; transform: translateY(-50%);
             opacity: 0; transition: opacity 2s ease;
-            z-index: 5; pointer-events: none;
+            pointer-events: none;
         }
 
         .main-text {
-            display: block;
-            font-size: 32px; color: #ffb7d5;
-            letter-spacing: 2px; font-weight: 100;
-            text-shadow: 0 0 15px rgba(255,183,213,0.4);
-        }
-
-        .sub-text {
-            display: block;
-            font-size: 12px; color: rgba(255,183,213,0.5);
-            margin-top: 15px; letter-spacing: 4px;
-            text-transform: uppercase;
-        }
-
-        #bubble {
-            position: absolute;
-            top: -35px; left: 50%;
-            transform: translateX(-50%);
-            color: #ffb7d5; font-size: 13px;
-            font-weight: bold; opacity: 0;
-            transition: opacity 0.2s;
+            display: block; font-size: 30px; color: #ffb7d5;
+            letter-spacing: 2px; text-shadow: 0 0 15px rgba(255,183,213,0.4);
         }
     </style>
 </head>
 <body oncontextmenu="return false;">
 
-    <canvas id="canvas"></canvas>
+    <div id="game-area">
+        <button id="evade-button">Catch Me</button>
+    </div>
 
     <div id="final-message">
         <span class="main-text">See you in the summer</span>
+        <span style="color: rgba(255,183,213,0.5); font-size: 12px; letter-spacing: 4px;">CAN'T WAIT</span>
     </div>
-
-    <button id="evade-button"><span id="bubble"></span>Catch Me</button>
 
     <script>
         const btn = document.getElementById('evade-button');
-        const bubble = document.getElementById('bubble');
         const finalMsg = document.getElementById('final-message');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const area = document.getElementById('game-area');
         
         let count = 0;
         let isDone = false;
-        const goal = 20; // Увеличил до 20
-        let particles = [];
+        const goal = 20;
 
-        function initCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            particles = [];
-            for(let i=0; i<30; i++) {
-                particles.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    r: Math.random() * 1.5 + 0.5,
-                    s: Math.random() * 0.3 + 0.1,
-                    o: Math.random() * 0.5
-                });
-            }
-        }
-
-        function drawParticles() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(255, 183, 213, 0.3)";
-            particles.forEach(p => {
-                ctx.globalAlpha = p.o;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-                ctx.fill();
-                p.y -= p.s;
-                if(p.y < -5) p.y = canvas.height + 5;
-            });
-            requestAnimationFrame(drawParticles);
-        }
-
-        const phrases = ["Too slow!", "Nope!", "Try harder!", "Missed!", "Wait!", "Almost!"];
-
-        function move(e) {
+        function handleInput(e) {
             if (isDone) return;
-            const rect = btn.getBoundingClientRect();
+
+            // Берем координаты либо мыши, либо первого касания
             const x = e.clientX || (e.touches && e.touches[0].clientX);
             const y = e.clientY || (e.touches && e.touches[0].clientY);
-            
+
+            const rect = btn.getBoundingClientRect();
             const btnX = rect.left + rect.width / 2;
             const btnY = rect.top + rect.height / 2;
+
+            // Дистанция между пальцем и кнопкой
             const dist = Math.hypot(x - btnX, y - btnY);
 
-            if (dist < 130) {
+            // Если палец ближе 150 пикселей - кнопка убегает
+            if (dist < 150) {
                 count++;
-                
-                if (count % 3 === 0) {
-                    bubble.textContent = phrases[Math.floor(Math.random() * phrases.length)];
-                    bubble.style.opacity = 1;
-                    setTimeout(() => bubble.style.opacity = 0, 500);
-                }
-
                 if (navigator.vibrate) navigator.vibrate(10);
 
-                const margin = 60;
+                const margin = 80;
                 const newX = Math.random() * (window.innerWidth - rect.width - margin) + margin/2;
                 const newY = Math.random() * (window.innerHeight - rect.height - margin) + margin/2;
 
@@ -158,14 +106,24 @@
                 if (count >= goal) {
                     isDone = true;
                     btn.textContent = "Got it!";
-                    btn.style.background = "rgba(255, 183, 213, 0.8)";
-                    bubble.style.opacity = 0;
+                    btn.style.background = "rgba(255, 183, 213, 0.9)";
                 }
             }
         }
 
-        window.addEventListener('mousemove', move);
-        window.addEventListener('touchmove', (e) => { move(e); e.preventDefault(); }, {passive: false});
+        // Слушаем касания по всей области экрана
+        area.addEventListener('touchstart', (e) => {
+            handleInput(e);
+            // Не даем скроллить страницу, пока она пытается поймать кнопку
+        }, { passive: false });
+
+        area.addEventListener('touchmove', (e) => {
+            handleInput(e);
+            e.preventDefault();
+        }, { passive: false });
+
+        // Для проверки на ноуте оставляем мышку
+        area.addEventListener('mousemove', handleInput);
 
         btn.addEventListener('click', () => {
             if (isDone) {
@@ -179,12 +137,9 @@
         });
 
         window.onload = () => {
-            initCanvas();
-            drawParticles();
             btn.style.left = `${(window.innerWidth - btn.offsetWidth) / 2}px`;
             btn.style.top = `${(window.innerHeight - btn.offsetHeight) / 2}px`;
         };
-        window.onresize = initCanvas;
     </script>
 </body>
 </html>
