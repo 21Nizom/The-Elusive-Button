@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Summer Challenge</title>
+    <style>
+        * { 
+            box-sizing: border-box; 
+            -webkit-touch-callout: none; 
+            -webkit-user-select: none; 
+            user-select: none; 
+            outline: none;
+        }
+        
+        body {
+            margin: 0; height: 100vh; overflow: hidden; touch-action: none;
+            background: #4a0404; /* Base Cherry */
+            background: radial-gradient(circle at center, #800020 0%, #4a0404 100%);
+            font-family: 'Segoe UI', sans-serif;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        canvas { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
+
+        #evade-button {
+            position: absolute;
+            padding: 18px 36px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: #fff;
+            background: rgba(255, 183, 213, 0.4); /* Pink Glass */
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            text-transform: uppercase;
+            /* Оптимизация для мобилок */
+            transform: translate3d(0,0,0);
+            will-change: transform, left, top;
+            transition: transform 0.1s ease-out;
+        }
+
+        #final-message {
+            position: absolute;
+            width: 100%; text-align: center;
+            top: 50%; transform: translateY(-50%);
+            opacity: 0; transition: opacity 2s ease;
+            z-index: 5; pointer-events: none;
+        }
+
+        .main-text {
+            display: block;
+            font-size: 32px; color: #ffb7d5;
+            letter-spacing: 2px; font-weight: 100;
+            text-shadow: 0 0 15px rgba(255,183,213,0.4);
+        }
+
+        .sub-text {
+            display: block;
+            font-size: 12px; color: rgba(255,183,213,0.5);
+            margin-top: 15px; letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        #bubble {
+            position: absolute;
+            top: -35px; left: 50%;
+            transform: translateX(-50%);
+            color: #ffb7d5; font-size: 13px;
+            font-weight: bold; opacity: 0;
+            transition: opacity 0.2s;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <canvas id="canvas"></canvas>
+
+    <div id="final-message">
+        <span class="main-text">See you in the summer</span>
+    </div>
+
+    <button id="evade-button"><span id="bubble"></span>Catch Me</button>
+
+    <script>
+        const btn = document.getElementById('evade-button');
+        const bubble = document.getElementById('bubble');
+        const finalMsg = document.getElementById('final-message');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let count = 0;
+        let isDone = false;
+        const goal = 20; // Увеличил до 20
+        let particles = [];
+
+        function initCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particles = [];
+            for(let i=0; i<30; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    r: Math.random() * 1.5 + 0.5,
+                    s: Math.random() * 0.3 + 0.1,
+                    o: Math.random() * 0.5
+                });
+            }
+        }
+
+        function drawParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "rgba(255, 183, 213, 0.3)";
+            particles.forEach(p => {
+                ctx.globalAlpha = p.o;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+                ctx.fill();
+                p.y -= p.s;
+                if(p.y < -5) p.y = canvas.height + 5;
+            });
+            requestAnimationFrame(drawParticles);
+        }
+
+        const phrases = ["Too slow!", "Nope!", "Try harder!", "Missed!", "Wait!", "Almost!"];
+
+        function move(e) {
+            if (isDone) return;
+            const rect = btn.getBoundingClientRect();
+            const x = e.clientX || (e.touches && e.touches[0].clientX);
+            const y = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            const btnX = rect.left + rect.width / 2;
+            const btnY = rect.top + rect.height / 2;
+            const dist = Math.hypot(x - btnX, y - btnY);
+
+            if (dist < 130) {
+                count++;
+                
+                if (count % 3 === 0) {
+                    bubble.textContent = phrases[Math.floor(Math.random() * phrases.length)];
+                    bubble.style.opacity = 1;
+                    setTimeout(() => bubble.style.opacity = 0, 500);
+                }
+
+                if (navigator.vibrate) navigator.vibrate(10);
+
+                const margin = 60;
+                const newX = Math.random() * (window.innerWidth - rect.width - margin) + margin/2;
+                const newY = Math.random() * (window.innerHeight - rect.height - margin) + margin/2;
+
+                btn.style.left = `${newX}px`;
+                btn.style.top = `${newY}px`;
+
+                if (count >= goal) {
+                    isDone = true;
+                    btn.textContent = "Got it!";
+                    btn.style.background = "rgba(255, 183, 213, 0.8)";
+                    bubble.style.opacity = 0;
+                }
+            }
+        }
+
+        window.addEventListener('mousemove', move);
+        window.addEventListener('touchmove', (e) => { move(e); e.preventDefault(); }, {passive: false});
+
+        btn.addEventListener('click', () => {
+            if (isDone) {
+                btn.style.opacity = 0;
+                if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+                setTimeout(() => {
+                    btn.style.display = 'none';
+                    finalMsg.style.opacity = 1;
+                }, 400);
+            }
+        });
+
+        window.onload = () => {
+            initCanvas();
+            drawParticles();
+            btn.style.left = `${(window.innerWidth - btn.offsetWidth) / 2}px`;
+            btn.style.top = `${(window.innerHeight - btn.offsetHeight) / 2}px`;
+        };
+        window.onresize = initCanvas;
+    </script>
+</body>
+</html>
